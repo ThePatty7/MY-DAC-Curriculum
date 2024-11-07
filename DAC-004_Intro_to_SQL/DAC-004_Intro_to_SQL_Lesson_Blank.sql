@@ -4,7 +4,8 @@
 
 -- Select department table, the employee table and vendor table. Let's explore the database a little!
 
-
+select *
+from person.person
 
 -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
@@ -318,10 +319,43 @@ FROM production.product;
 SELECT *
 FROM sales.salesorderdetail;
 
+select 
+product.productid
+product.name As productname,
+Coalesce (sum(salesorderdetail.orderqty),0) As totalsalesquantity
+from production.product As product
+left join sales.salesorderdetail As salesorderdetail
+on product.productionid = salesorderdetail.productid
+Group By 
+product.productid,
+product.name
+Order by
+Coalesce(sum(salesorderdetail.orderqty),DESC)
 
 
--- Q5: List all employees and their associated email addresses,  
--- display their full name and email address.
+	-- Q5: List all employees and their associated email addresses,  
+	-- display their full name and email address.
+	
+Select *
+From humanresources.employee;
+
+ 
+
+Select *
+From person.person;
+
+Select *
+From person.emailaddress;
+
+Select 
+Concat(person.firstname,'',person.middlename,'',person.lastname) As Full_name
+email.address.email.address AS email
+From humanresources.employee as Employee
+Left Join person.person AS person
+on employee.businessentityid = person.businessentityid
+Left Join person.emailaddress As Email_address
+on employee.businessentityid = Email_address.businessentityid
+
 
 
 -- Retrieve a list of all individual customers id, firstname along with the total number of orders they have placed 
@@ -336,10 +370,31 @@ FROM sales.customer;
 SELECT *
 FROM sales.salesorderheader;
 
+Select
+
+	customer.customerid,
+	person.firstname,
+	count (salesorderid) As purchase,
+	ROUND(SUM(subtotal),2) As cost
+
+From sales.customer As customer
+Left join person.person As person
+on customer.personid = person.businessentityid;
+Left join sales.salesorderheader As salesorderheader
+on customer.customerid = salesorderheader.customerid;
+Group by
+customer.customerid,
+person.firstname
+Having (sum(subtotal),2) Is not null;
+
+
 
 
 -- Q6: Can LEFT JOIN cause duplication? How?
 -- A6: 
+-- It depends on the relationship that both the tables present for the left join share.
+-- If it is one to one relationship, the chance of having duplicates is unlikely.
+-- However if it is a one to many relationship, there could be a chance of duplicates to be present.
 
 -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
@@ -347,12 +402,30 @@ FROM sales.salesorderheader;
 -- Write a query to retrieve all sales orders and their corresponding customers. If a sales order exists without an associated customer, 
 -- include the sales order in the result.
 
+-- SELECT 
+-- salesorderheader.salesorderid AS salesorderid, 
+-- salesorderheader.orderdate AS orderdate, 
+-- customer.customerid AS customerid, 
+-- customer.personid AS personid,
+-- FROM sales.salesorderheader AS salesorderheader;
+
 SELECT 
     salesorderheader.salesorderid AS salesorderid, 
     salesorderheader.orderdate AS orderdate, 
     customer.customerid AS customerid, 
     customer.personid AS personid
 FROM sales.salesorderheader AS salesorderheader
+right join sales.customer As customer
+on salesorderheader.customer.customerid
+
+Select *
+From sales.salesorderid
+
+
+Select
+From sales.customer
+Limit 10; 
+
 
 
 -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -367,15 +440,22 @@ SELECT
     salesorderheader.salesorderid
 FROM humanresources.employee AS employee
 
+Select *
+From humanresources.employee
+Limit 10;
 		
 -- Write a query to retrieve a list of all employees and customers, and if either side doesn't have a FirstName, 
 -- use the available value from the other side. Use FULL OUTER JOIN and COALESCE.
 
 SELECT 
-
+employee.businessentityid As employeeid,
+salesorderheader.salesorderid
 FROM humanresources.employee AS employee
+Full outer join sales.salesorderheader As salesorderheader
+on employee.businessentityid = salesorderheader.salespersonid;
 
-						 
+
+
 -- Write a query to list all employees along with their associated sales orders. Include employees who may not have any sales orders. 
 -- Use the COALESCE function to handle NULL values in the SalesOrderID column.
 
@@ -397,10 +477,19 @@ ORDER BY employee.employeeid;
 
 -- Write a query to generate all possible combinations of product categories and product models. Show the category name and the model name.
 
-SELECT 
-
+SELECT *
 FROM production.productcategory AS productcategory
+Limit 10;
 
+Select *
+From productive.productmodel As productmodel
+Limit 10;
+
+Select 
+productcategory.name as categoryname,
+productmodel.name as modelname
+From production.productcategory as productcategory
+Cross Join production.productmodel As Productmodel;
 
 -- Each category name is matched to each model name
 
@@ -444,6 +533,26 @@ FROM purchasing.purchaseorderheader;
 
 -- STRING FUNCTION
 -- DATE handling, CONCAT()
+select 
+firstname,
+lastname,
+concat (firstname,'',middlename,'',lastname) As Fullname,
+'Employee' As category
+
+From person.person As person
+inner join humanresources.employee as employee
+on person.businessentityid = employee.businessentityid
+
+union
+
+select
+firstname,
+lastname,
+concat (firstname,'',middlename,'',lastname) As fullname,
+From person.person as person
+inner join sales.customer as customer
+on person.businessentityid = customer.personid
+where customer.storeid is Null;
 
 -- Getting parts of the date out
 
@@ -451,9 +560,28 @@ SELECT
 
 FROM sales.salesorderheader;
 
--- DATETIME manipulations
+Select
+Extract (year from orderdate) As year,
+Extract (quarter from orderdate) as Quarter,
+Extract (month from orderdate) as month,
+Extract (week from orderdate) as week,
+Extract (day from orderdate) as day,
+Extract (hour from orderdate) as hour,
+Extract (minute from orderdate) as minute,
+Extract (second from orderdate) as second,
 
+Cast (orderdate as time) as time,
+Cast (orderdate as date) as date
+From sales.salesorderheader;
+
+
+-- DATETIME manipulations
 SELECT
+orderdate At Time zone 'UTC' at time zone 'Asia/Singapore' as local_time,
+current_date as today,
+current_date + interval '10 days' as add_days
+
+
 
 FROM sales.salesorderheader
 WHERE territoryid = 1
@@ -497,6 +625,8 @@ SELECT
 
 FROM sales.salesorderheader AS salesorderheader;
 
+
+
 -- Q7: Write a query to calculate bonuses for each employee. The bonus is calculated based on both their total sales and their length of employment:
 
 -- If an employee has sales greater than 500,000 and has been employed for more than 5 years, they get a 15% bonus.
@@ -505,6 +635,7 @@ FROM sales.salesorderheader AS salesorderheader;
 -- If their sales are less than 100,000, they get no bonus.
 
 -- A7:
+
 
 
 -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
